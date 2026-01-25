@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bio-Engine Pro v2.5</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <aside id="ui">
+      <div class="brand">
+        <svg class="logo-icon" viewBox="0 0 256 256">
+          <circle
+            cx="128"
+            cy="128"
+            r="40"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="16"
+          />
+          <circle
+            cx="128"
+            cy="40"
+            r="24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="16"
+          />
+          <circle
+            cx="51"
+            cy="184"
+            r="24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="16"
+          />
+          <circle
+            cx="205"
+            cy="184"
+            r="24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="16"
+          />
+          <line
+            x1="128"
+            x2="128"
+            y1="80"
+            y2="64"
+            stroke="currentColor"
+            stroke-width="16"
+          />
+          <line
+            x1="93.4"
+            x2="71.8"
+            y1="148"
+            y2="160.5"
+            stroke="currentColor"
+            stroke-width="16"
+          />
+          <line
+            x1="162.6"
+            x2="184.2"
+            y1="148"
+            y2="160.5"
+            stroke="currentColor"
+            stroke-width="16"
+          />
+        </svg>
+        <div class="brand-text">
+          <span class="brand-name">BIO-ENGINE</span>
+          <span class="brand-version">PRO v2.5</span>
+        </div>
+      </div>
+
+      <section class="main-buttons">
+        <button id="reset">
+          <i class="ph ph-arrows-clockwise"></i> Resetar Mundo
+        </button>
+        <button id="randomize">
+          <i class="ph ph-intersect"></i> Random Afinidade
+        </button>
+        <button id="randomizeReact">
+          <i class="ph ph-flask"></i> Random Reações
+        </button>
+      </section>
+
+      <div class="control-group">
+        <label>Espécies <span id="mVal">6</span></label>
+        <input type="range" id="mInput" min="2" max="12" step="1" value="6" />
+        <label>População <span id="nVal">10000</span></label>
+        <input
+          type="range"
+          id="nInput"
+          min="1000"
+          max="40000"
+          step="1000"
+          value="10000"
+        />
+      </div>
+
+      <div class="control-group">
+        <label>Velocidade <span id="dtVal">0.005</span></label>
+        <input
+          type="range"
+          id="dtInput"
+          min="0"
+          max="0.01"
+          step="0.0001"
+          value="0.005"
+        />
+        <label>Atrito <span id="frictionVal">0.05</span></label>
+        <input
+          type="range"
+          id="frictionInput"
+          min="0.01"
+          max="0.5"
+          step="0.01"
+          value="0.05"
+        />
+        <label>Força (Beta) <span id="betaVal">0.020</span></label>
+        <input
+          type="range"
+          id="betaInput"
+          min="0.005"
+          max="0.1"
+          step="0.005"
+          value="0.02"
+        />
+      </div>
+
+      <div class="control-group">
+        <label>Mundo <span id="worldSizeVal">2000</span></label>
+        <input
+          type="range"
+          id="worldSizeInput"
+          min="500"
+          max="4000"
+          step="100"
+          value="2000"
+        />
+        <label
+          >Raio Min/Max <span id="rMinVal">15</span> /
+          <span id="rMaxVal">80</span></label
+        >
+        <input type="range" id="rMinInput" min="2" max="500" value="15" />
+        <input type="range" id="rMaxInput" min="50" max="250" value="80" />
+      </div>
+
+      <div class="control-group">
+        <label>Prob. Reação <span id="reactVal">1.0</span>%</label>
+        <input
+          type="range"
+          id="reactInput"
+          min="0"
+          max="10"
+          step="0.1"
+          value="1"
+        />
+        <label>Tam. Partícula <span id="pSizeVal">2.5</span></label>
+        <input
+          type="range"
+          id="pSizeInput"
+          min="0.1"
+          max="10"
+          step="0.1"
+          value="2.5"
+        />
+      </div>
+
+      <nav class="tabs">
+        <button class="tab-btn active" data-tab="tab-aff">Afinidades</button>
+        <button class="tab-btn" data-tab="tab-regras">Reações</button>
+      </nav>
+
+      <div id="tab-aff" class="tab-content active">
+        <div id="matrix" class="matrix"></div>
+      </div>
+
+      <div id="tab-regras" class="tab-content">
+        <div class="reaction-builder">
+          <div class="color-row">
+            <div
+              id="pickA"
+              class="color-pick"
+              data-val="0"
+              style="background: #ff4757"
+            ></div>
+            <span class="symbol">+</span>
+            <div
+              id="pickB"
+              class="color-pick"
+              data-val="1"
+              style="background: #6c5ce7"
+            ></div>
+            <span class="symbol">→</span>
+            <div
+              id="pickC"
+              class="color-pick"
+              data-val="2"
+              style="background: #00f2ff"
+            ></div>
+            <span class="symbol">+</span>
+            <div
+              id="pickD"
+              class="color-pick"
+              data-val="0"
+              style="background: #ff4757"
+            ></div>
+          </div>
+          <button id="addRuleBtn" class="secondary-btn">
+            <i class="ph ph-plus"></i> Adicionar Regra
+          </button>
+        </div>
+        <div id="activeRulesList"></div>
+      </div>
+    </aside>
+
+    <main>
+      <canvas id="c"></canvas>
+    </main>
+
+    <script src="main.js"></script>
+  </body>
+</html>
