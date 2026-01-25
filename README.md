@@ -31,7 +31,7 @@ Investigar como diferentes configurações de atração e repulsão entre espéc
 
 ### ⚗️ Reações Probabilísticas
 
-Implementar mecanismos de transformação de partículas baseados em encontros locais, simulando transições de estado, mutações ou reações químicas abstratas.
+Implementar mecanismos de transformação de partículas baseados em encontros locais, simulando transições de estado e reações químicas abstratas.
 
 ### 🌀 Padrões Emergentes
 
@@ -111,7 +111,6 @@ Esses valores moldam diretamente a dinâmica global do sistema.
 
 #### 2. Cálculo de Forças
 
-* Utiliza **Hash Espacial (Spatial Hashing)** para reduzir a complexidade computacional.
 * Apenas partículas vizinhas dentro de um raio máximo são consideradas.
 
 **Parâmetros principais:**
