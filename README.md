@@ -73,7 +73,7 @@ O T‑Genesis foi projetado para ser simples de executar, sem dependências exte
 1. **Clone o repositório:**
 
 ```bash
-git clone https://github.com/seu-usuario/t-genesis.git
+git clone https://github.com/SamolasGit/ParticleLife.git
 ```
 
 2. Abra a pasta no **VS Code**.
