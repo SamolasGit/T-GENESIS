@@ -118,6 +118,44 @@
       </section>
 
       <div class="control-group">
+        <label>Ferramentas de Edição</label>
+        <div class="tool-buttons">
+          <button id="addMode" class="tool-btn active">
+            <i class="ph ph-plus-circle"></i>
+            Adicionar
+          </button>
+          <button id="removeMode" class="tool-btn">
+            <i class="ph ph-minus-circle"></i>
+            Remover
+          </button>
+        </div>
+
+        <div id="speciesSelector" class="species-selector-container">
+          <label style="margin-top: 12px">Selecionar Espécie</label>
+          <div class="particle-selector"></div>
+        </div>
+
+        <label style="margin-top: 12px">
+          Tamanho Pincel <span id="brushSizeVal">5</span>
+        </label>
+        <input
+          type="range"
+          id="brushSizeInput"
+          min="1"
+          max="50"
+          step="1"
+          value="5"
+        />
+
+        <div class="toggle-container">
+          <label>
+            <input type="checkbox" id="showBorder" checked />
+            <span>Mostrar Borda do Mundo</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="control-group">
         <label>Espécies <span id="mVal">6</span></label>
         <input type="range" id="mInput" min="2" max="12" step="1" value="6" />
 
@@ -139,7 +177,7 @@
           id="dtInput"
           min="0"
           max="0.01"
-          step="0.0001"
+          step="0.0000000001"
           value="0.009"
         />
 

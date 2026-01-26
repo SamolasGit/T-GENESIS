@@ -16,6 +16,11 @@ let n,
   isReady = false;
 
 const camera = { x: 1000, y: 1000, zoom: 0.5, isDragging: false, lx: 0, ly: 0 };
+let selectedSpecies = 0;
+let brushSize = 5;
+let particleArray = [];
+let editMode = "add"; // 'add' or 'remove'
+let showBorder = true;
 
 const shaderCode = `
     struct Particle { pos: vec2<f32>, vel: vec2<f32>, cls: f32, padding: f32 };
@@ -97,10 +102,15 @@ function reset() {
   camera.y = ws / 2;
 
   const pData = new Float32Array(n * 6);
+  particleArray = [];
   for (let i = 0; i < n; i++) {
-    pData[i * 6] = Math.random() * ws;
-    pData[i * 6 + 1] = Math.random() * ws;
-    pData[i * 6 + 4] = Math.floor(Math.random() * m);
+    const px = Math.random() * ws;
+    const py = Math.random() * ws;
+    const cls = Math.floor(Math.random() * m);
+    pData[i * 6] = px;
+    pData[i * 6 + 1] = py;
+    pData[i * 6 + 4] = cls;
+    particleArray.push({ x: px, y: py, vx: 0, vy: 0, cls });
   }
 
   affinities = new Float32Array(m * m).map(() => Math.random() * 2 - 1);
@@ -140,6 +150,7 @@ function reset() {
   });
   updateRegrasUI();
   renderMatrix();
+  updateParticleSelector();
 }
 
 async function loop() {
@@ -154,7 +165,7 @@ async function loop() {
   const pSizeBase = parseFloat(get("pSizeInput").value);
 
   get("mVal").textContent = m;
-  get("dtVal").textContent = dt.toFixed(3);
+  get("dtVal").textContent = dt.toFixed(4);
   get("nVal").textContent = n;
   get("worldSizeVal").textContent = ws;
   get("frictionVal").textContent = friction.toFixed(2);
@@ -200,6 +211,17 @@ async function loop() {
   await readBuffer.mapAsync(GPUMapMode.READ);
   const data = new Float32Array(readBuffer.getMappedRange());
 
+  // Update particle array from GPU data
+  for (let i = 0; i < n; i++) {
+    particleArray[i] = {
+      x: data[i * 6],
+      y: data[i * 6 + 1],
+      vx: data[i * 6 + 2],
+      vy: data[i * 6 + 3],
+      cls: data[i * 6 + 4],
+    };
+  }
+
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -208,7 +230,14 @@ async function loop() {
   ctx.scale(scale, scale);
   ctx.translate(-camera.x, -camera.y);
 
-  const pSize = Math.max(0.1, pSizeBase / camera.zoom);
+  // Draw world border if enabled
+  if (showBorder) {
+    ctx.strokeStyle = "rgba(0, 217, 255, 0.3)";
+    ctx.lineWidth = 2 / scale;
+    ctx.strokeRect(0, 0, ws, ws);
+  }
+
+  const pSize = Math.max(0.1, pSizeBase / (1 * camera.zoom));
   for (let i = 0; i < n; i++) {
     ctx.fillStyle = `hsl(${(360 * data[i * 6 + 4]) / m}, 80%, 60%)`;
     ctx.fillRect(data[i * 6], data[i * 6 + 1], pSize, pSize);
@@ -265,6 +294,58 @@ function setupUI() {
 
   get("reset").onclick = reset;
 
+  // Edit mode buttons
+  get("addMode").onclick = () => {
+    editMode = "add";
+    get("addMode").classList.add("active");
+    get("removeMode").classList.remove("active");
+    get("speciesSelector").classList.remove("hidden");
+    canvas.classList.remove("remove-mode");
+    canvas.classList.add("add-mode");
+  };
+
+  get("removeMode").onclick = () => {
+    editMode = "remove";
+    get("removeMode").classList.add("active");
+    get("addMode").classList.remove("active");
+    get("speciesSelector").classList.add("hidden");
+    canvas.classList.add("remove-mode");
+    canvas.classList.remove("add-mode");
+  };
+
+  // Show border toggle
+  get("showBorder").onchange = (e) => {
+    showBorder = e.target.checked;
+  };
+
+  // Particle selector
+  get("brushSizeInput").oninput = (e) => {
+    brushSize = parseInt(e.target.value);
+    get("brushSizeVal").textContent = brushSize;
+  };
+
+  canvas.onclick = (e) => {
+    if (camera.isDragging) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const x = (e.clientX - rect.left) * dpr;
+    const y = (e.clientY - rect.top) * dpr;
+
+    const ws = parseFloat(get("worldSizeInput").value);
+    const scale = (Math.min(canvas.width, canvas.height) / ws) * camera.zoom;
+
+    // Convert screen coordinates to world coordinates
+    const worldX = (x - canvas.width / 2) / scale + camera.x;
+    const worldY = (y - canvas.height / 2) / scale + camera.y;
+
+    if (editMode === "add") {
+      addParticles(worldX, worldY, brushSize, selectedSpecies);
+    } else {
+      removeParticles(worldX, worldY, brushSize);
+    }
+  };
+
   canvas.onwheel = (e) => {
     e.preventDefault();
     const ws = parseFloat(get("worldSizeInput").value);
@@ -273,11 +354,22 @@ function setupUI() {
     camera.zoom = Math.min(Math.max(camera.zoom, 0.05), 50.0);
   };
 
+  let dragStartX, dragStartY;
   canvas.onmousedown = (e) => {
-    camera.isDragging = true;
-    camera.lx = e.clientX;
-    camera.ly = e.clientY;
+    if (e.button === 2) {
+      // Right click for dragging
+      e.preventDefault();
+      camera.isDragging = true;
+      camera.lx = e.clientX;
+      camera.ly = e.clientY;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      canvas.classList.add("pan-mode");
+    }
   };
+
+  canvas.oncontextmenu = (e) => e.preventDefault();
+
   window.onmousemove = (e) => {
     if (!camera.isDragging) return;
     const scale =
@@ -289,7 +381,21 @@ function setupUI() {
     camera.lx = e.clientX;
     camera.ly = e.clientY;
   };
-  window.onmouseup = () => (camera.isDragging = false);
+
+  window.onmouseup = (e) => {
+    if (camera.isDragging) {
+      const dragDist = Math.sqrt(
+        Math.pow(e.clientX - dragStartX, 2) +
+          Math.pow(e.clientY - dragStartY, 2),
+      );
+      canvas.classList.remove("pan-mode");
+      // Only consider it a drag if moved more than 5 pixels
+      if (dragDist < 5) {
+        camera.isDragging = false;
+      }
+    }
+    camera.isDragging = false;
+  };
 }
 
 function renderMatrix() {
@@ -345,8 +451,123 @@ function updateRegrasUI() {
     )
     .join("");
 }
+
 window.delRule = (i) => {
   activeRules.splice(i, 1);
   updateRegrasUI();
 };
+
+function updateParticleSelector() {
+  const selector = document.querySelector(".particle-selector");
+  selector.innerHTML = "";
+
+  for (let i = 0; i < m; i++) {
+    const option = document.createElement("div");
+    option.className = "particle-option";
+    if (i === selectedSpecies) option.classList.add("selected");
+    option.dataset.species = i;
+    option.style.background = `hsl(${(360 * i) / m}, 80%, 60%)`;
+    option.innerHTML = `<span>Espécie ${i + 1}</span>`;
+
+    option.onclick = () => {
+      selectedSpecies = i;
+      document
+        .querySelectorAll(".particle-option")
+        .forEach((el) => el.classList.remove("selected"));
+      option.classList.add("selected");
+    };
+
+    selector.appendChild(option);
+  }
+}
+
+function addParticles(worldX, worldY, count, species) {
+  const ws = parseFloat(get("worldSizeInput").value);
+  const newParticles = [];
+
+  for (let i = 0; i < count; i++) {
+    // Add some randomness around the click position
+    const offsetX = (Math.random() - 0.5) * 20;
+    const offsetY = (Math.random() - 0.5) * 20;
+    let px = (worldX + offsetX + ws) % ws;
+    let py = (worldY + offsetY + ws) % ws;
+
+    newParticles.push({
+      x: px,
+      y: py,
+      vx: 0,
+      vy: 0,
+      cls: species,
+    });
+  }
+
+  // Add to particle array
+  particleArray.push(...newParticles);
+  n = particleArray.length;
+
+  updateGPUBuffer();
+}
+
+function removeParticles(worldX, worldY, radius) {
+  const ws = parseFloat(get("worldSizeInput").value);
+  const removeRadius = radius * 5; // Make removal area proportional to brush size
+
+  // Filter out particles within the removal radius
+  const initialCount = particleArray.length;
+  particleArray = particleArray.filter((p) => {
+    let dx = p.x - worldX;
+    let dy = p.y - worldY;
+
+    // Handle world wrapping
+    if (dx > ws * 0.5) dx -= ws;
+    else if (dx < -ws * 0.5) dx += ws;
+    if (dy > ws * 0.5) dy -= ws;
+    else if (dy < -ws * 0.5) dy += ws;
+
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    return dist > removeRadius;
+  });
+
+  const removedCount = initialCount - particleArray.length;
+  if (removedCount > 0) {
+    n = particleArray.length;
+    updateGPUBuffer();
+  }
+}
+
+function updateGPUBuffer() {
+  // Update GPU buffer
+  const pData = new Float32Array(n * 6);
+  for (let i = 0; i < n; i++) {
+    pData[i * 6] = particleArray[i].x;
+    pData[i * 6 + 1] = particleArray[i].y;
+    pData[i * 6 + 2] = particleArray[i].vx;
+    pData[i * 6 + 3] = particleArray[i].vy;
+    pData[i * 6 + 4] = particleArray[i].cls;
+    pData[i * 6 + 5] = 0;
+  }
+
+  // Recreate particle buffer with new size
+  if (particleBuffer) particleBuffer.destroy();
+  particleBuffer = device.createBuffer({
+    size: Math.max(pData.byteLength, 64), // Ensure minimum size
+    usage:
+      GPUBufferUsage.STORAGE |
+      GPUBufferUsage.COPY_DST |
+      GPUBufferUsage.COPY_SRC,
+  });
+  device.queue.writeBuffer(particleBuffer, 0, pData);
+
+  // Recreate bind group
+  bindGroup = device.createBindGroup({
+    layout: pipeline.getBindGroupLayout(0),
+    entries: [
+      { binding: 0, resource: { buffer: particleBuffer } },
+      { binding: 1, resource: { buffer: affinityBuffer } },
+      { binding: 2, resource: { buffer: paramsBuffer } },
+      { binding: 3, resource: { buffer: reactionBuffer } },
+    ],
+  });
+}
+
 init();
