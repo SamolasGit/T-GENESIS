@@ -39,7 +39,6 @@ body {
   height: 100vh;
 }
 
-/* === Scrollbar === */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -57,7 +56,6 @@ body {
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* === Sidebar === */
 #ui {
   width: 360px;
   padding: 28px 24px;
@@ -71,7 +69,6 @@ body {
   gap: 24px;
 }
 
-/* === Brand === */
 .brand {
   display: flex;
   align-items: center;
@@ -129,7 +126,6 @@ body {
   text-transform: uppercase;
 }
 
-/* === Buttons === */
 .main-buttons {
   display: grid;
   gap: 10px;
@@ -224,7 +220,6 @@ button:active {
   font-size: 0.75rem;
 }
 
-/* === Control Groups === */
 .control-group {
   background: var(--bg-card);
   padding: 16px;
@@ -260,7 +255,6 @@ label span {
   font-weight: 600;
 }
 
-/* === Range Inputs === */
 input[type="range"] {
   -webkit-appearance: none;
   width: 100%;
@@ -306,7 +300,6 @@ input[type="range"]::-webkit-slider-thumb:active {
   transform: scale(1.05);
 }
 
-/* === Tabs === */
 .tabs {
   display: flex;
   gap: 6px;
@@ -363,7 +356,6 @@ input[type="range"]::-webkit-slider-thumb:active {
   }
 }
 
-/* === Matrix === */
 .matrix {
   display: grid;
   gap: 4px;
@@ -418,7 +410,6 @@ input[type="range"]::-webkit-slider-thumb:active {
   z-index: 10;
 }
 
-/* === Reactions === */
 .reaction-builder {
   background: var(--bg-card);
   padding: 18px;
@@ -460,7 +451,6 @@ input[type="range"]::-webkit-slider-thumb:active {
   color: var(--text-dim);
 }
 
-/* === Rule Cards === */
 #activeRulesList {
   display: flex;
   flex-direction: column;
@@ -502,7 +492,6 @@ input[type="range"]::-webkit-slider-thumb:active {
   color: #ff1744 !important;
 }
 
-/* === Canvas === */
 main {
   flex-grow: 1;
   position: relative;

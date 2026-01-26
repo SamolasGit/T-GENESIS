@@ -90,7 +90,6 @@ async function init() {
 }
 
 function reset() {
-  // Get values safely
   n = parseInt(get("nInput")?.value || 10000);
   m = parseInt(get("mInput")?.value || 6);
   const ws = parseFloat(get("worldSizeInput")?.value || 2000);
