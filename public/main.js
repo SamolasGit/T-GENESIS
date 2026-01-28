@@ -164,6 +164,8 @@ function reset() {
 
 async function loop() {
   if (!isReady) return;
+
+  // 1. Pegar valores dos sliders para a simulação física
   const dt = parseFloat(get("dtInput").value);
   const ws = parseFloat(get("worldSizeInput").value);
   const friction = parseFloat(get("frictionInput").value);
@@ -173,9 +175,9 @@ async function loop() {
   const beta = parseFloat(get("betaInput").value);
   const pSizeBase = parseFloat(get("pSizeInput").value);
 
-  get("mVal").textContent = m;
+  // 2. Atualizar apenas os labels de parâmetros físicos "vivos"
+  // Note que removemos mVal e nVal daqui para eles não "resetarem" enquanto você arrasta
   get("dtVal").textContent = dt.toFixed(4);
-  get("nVal").textContent = n;
   get("worldSizeVal").textContent = ws;
   get("frictionVal").textContent = friction.toFixed(2);
   get("reactVal").textContent = rProb.toFixed(1);
@@ -184,14 +186,15 @@ async function loop() {
   get("betaVal").textContent = beta.toFixed(3);
   get("pSizeVal").textContent = pSizeBase.toFixed(1);
 
+  // 3. Enviar dados para o GPU
   device.queue.writeBuffer(
     paramsBuffer,
     0,
     new Float32Array([
       dt,
       friction,
-      n,
-      m,
+      n, // Usa a contagem real de partículas atual
+      m, // Usa a quantidade real de espécies atual
       ws,
       rProb,
       rMin,
@@ -199,7 +202,7 @@ async function loop() {
       beta,
       0,
       0,
-      0,
+      0, // Padding
     ]),
   );
 
@@ -220,7 +223,7 @@ async function loop() {
   await readBuffer.mapAsync(GPUMapMode.READ);
   const data = new Float32Array(readBuffer.getMappedRange());
 
-  // Update particle array from GPU data
+  // Atualizar array local (opcional, dependendo do uso da sua lógica de edição)
   for (let i = 0; i < n; i++) {
     particleArray[i] = {
       x: data[i * 6],
@@ -231,15 +234,16 @@ async function loop() {
     };
   }
 
+  // 4. Renderização no Canvas
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
   const scale = (Math.min(canvas.width, canvas.height) / ws) * camera.zoom;
   ctx.translate(canvas.width / 2, canvas.height / 2);
   ctx.scale(scale, scale);
   ctx.translate(-camera.x, -camera.y);
 
-  // Draw world border if enabled
   if (showBorder) {
     ctx.strokeStyle = "rgba(0, 217, 255, 0.3)";
     ctx.lineWidth = 2 / scale;
@@ -251,6 +255,7 @@ async function loop() {
     ctx.fillStyle = `hsl(${(360 * data[i * 6 + 4]) / m}, 80%, 60%)`;
     ctx.fillRect(data[i * 6], data[i * 6 + 1], pSize, pSize);
   }
+
   readBuffer.unmap();
   readBuffer.destroy();
   requestAnimationFrame(loop);
@@ -266,7 +271,13 @@ function setupUI() {
       get(btn.dataset.tab).classList.add("active");
     };
   });
-
+  // Add this inside setupUI()
+  get("nInput").oninput = (e) => {
+    get("nVal").textContent = e.target.value;
+  };
+  get("mInput").oninput = (e) => {
+    get("mVal").textContent = e.target.value;
+  };
   get("randomize").onclick = () => {
     affinities = affinities.map(() => Math.random() * 2 - 1);
     device.queue.writeBuffer(affinityBuffer, 0, affinities);
@@ -988,33 +999,68 @@ function renderMatrix() {
   const mx = get("matrix");
   mx.innerHTML = "";
   mx.style.gridTemplateColumns = `25px repeat(${m}, 1fr)`;
+
+  // Empty corner
   mx.appendChild(document.createElement("div"));
+
+  // Column Headers (Top)
   for (let col = 0; col < m; col++) {
     const h = document.createElement("div");
     h.className = "matrix-header";
     h.style.backgroundColor = `hsl(${(360 * col) / m},80%,60%)`;
     mx.appendChild(h);
   }
+
+  // Rows
   for (let row = 0; row < m; row++) {
+    // Row Header (Left)
     const rh = document.createElement("div");
     rh.className = "matrix-header";
     rh.style.backgroundColor = `hsl(${(360 * row) / m},80%,60%)`;
     mx.appendChild(rh);
+
     for (let col = 0; col < m; col++) {
       const i = row * m + col;
-      const cell = document.createElement("div");
-      cell.className = `matrix-cell ${affinities[i] > 0 ? "cell-positive" : "cell-negative"}`;
-      cell.textContent = affinities[i].toFixed(1);
-      cell.onclick = () => {
-        affinities[i] *= -1;
+      const cellContainer = document.createElement("div");
+      cellContainer.className = `matrix-cell ${affinities[i] >= 0 ? "cell-positive" : "cell-negative"}`;
+
+      // Create the Input element
+      const input = document.createElement("input");
+      input.type = "number";
+      input.value = affinities[i].toFixed(2);
+      input.step = "0.1";
+      input.style.width = "100%";
+      input.style.background = "transparent";
+      input.style.border = "none";
+      input.style.color = "inherit";
+      input.style.textAlign = "center";
+      input.style.fontSize = "0.65rem";
+      input.style.fontWeight = "bold";
+      input.style.fontFamily = "monospace";
+
+      // Prevent clicks from triggering parent events if any
+      input.onclick = (e) => e.stopPropagation();
+
+      // Update value on change
+      input.onchange = (e) => {
+        let val = parseFloat(e.target.value);
+        if (isNaN(val)) val = 0;
+        // Clamp values between -1 and 1 for stability
+        val = Math.max(-2, Math.min(2, val));
+
+        affinities[i] = val;
         device.queue.writeBuffer(affinityBuffer, 0, affinities);
-        renderMatrix();
+
+        // Refresh visual classes (red/green)
+        cellContainer.className = `matrix-cell ${val >= 0 ? "cell-positive" : "cell-negative"}`;
+        input.value = val.toFixed(2);
       };
-      mx.appendChild(cell);
+
+      cellContainer.appendChild(input);
+      mx.appendChild(cellContainer);
     }
   }
 }
-
 function updateRegrasUI() {
   for (let i = 0; i < m * m; i++) {
     reactions[i * 2] = Math.floor(i / m);

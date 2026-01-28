@@ -1188,6 +1188,25 @@ canvas.capture-mode {
   }
 }
 
+.matrix-cell input {
+  outline: none;
+  -moz-appearance: textfield; /* Remove arrows in Firefox */
+}
+
+/* Remove arrows in Chrome/Safari */
+.matrix-cell input::-webkit-outer-spin-button,
+.matrix-cell input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.matrix-cell:focus-within {
+  transform: scale(1.1);
+  z-index: 10;
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
 .capture-hint i {
   color: var(--accent);
   font-size: 1.2rem;
