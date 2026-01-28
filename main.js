@@ -22,6 +22,14 @@ let particleArray = [];
 let editMode = "add"; // 'add' or 'remove'
 let showBorder = true;
 
+// Catalog system
+let catalog = [];
+let currentObservationData = null;
+let selectedObservationIndex = null;
+let captureMode = false;
+let captureStart = null;
+let captureEnd = null;
+
 const shaderCode = `
     struct Particle { pos: vec2<f32>, vel: vec2<f32>, cls: f32, padding: f32 };
     struct Params { dt: f32, friction: f32, n: f32, m: f32, worldSize: f32, rProb: f32, rMin: f32, rMax: f32, beta: f32, p1: f32, p2: f32, p3: f32 };
@@ -84,11 +92,12 @@ async function init() {
   ctx = canvas.getContext("2d", { alpha: false });
   window.onresize = () => {
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = (window.innerWidth - 320) * dpr;
+    canvas.width = (window.innerWidth - 360) * dpr;
     canvas.height = window.innerHeight * dpr;
   };
   window.onresize();
   setupUI();
+  loadCatalog();
   reset();
   isReady = true;
   requestAnimationFrame(loop);
@@ -294,6 +303,20 @@ function setupUI() {
 
   get("reset").onclick = reset;
 
+  // Save/Load Rules
+  get("saveRules").onclick = saveRulesToFile;
+
+  get("loadRules").onclick = () => {
+    get("rulesFileInput").click();
+  };
+
+  get("rulesFileInput").onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      loadRulesFromFile(file);
+    }
+  };
+
   // Edit mode buttons
   get("addMode").onclick = () => {
     editMode = "add";
@@ -326,6 +349,7 @@ function setupUI() {
 
   canvas.onclick = (e) => {
     if (camera.isDragging) return;
+    if (captureMode) return; // Don't add/remove particles in capture mode
 
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
@@ -356,6 +380,17 @@ function setupUI() {
 
   let dragStartX, dragStartY;
   canvas.onmousedown = (e) => {
+    // Capture mode - start selection
+    if (captureMode && e.button === 0) {
+      const rect = canvas.getBoundingClientRect();
+      captureStart = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
+      captureEnd = { ...captureStart };
+      return;
+    }
+
     if (e.button === 2) {
       // Right click for dragging
       e.preventDefault();
@@ -371,6 +406,22 @@ function setupUI() {
   canvas.oncontextmenu = (e) => e.preventDefault();
 
   window.onmousemove = (e) => {
+    // Capture mode - update selection
+    if (captureMode && captureStart) {
+      const rect = canvas.getBoundingClientRect();
+      captureEnd = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
+      updateCaptureSelection(
+        captureStart.x,
+        captureStart.y,
+        captureEnd.x,
+        captureEnd.y,
+      );
+      return;
+    }
+
     if (!camera.isDragging) return;
     const scale =
       (Math.min(canvas.width, canvas.height) /
@@ -383,6 +434,21 @@ function setupUI() {
   };
 
   window.onmouseup = (e) => {
+    // Capture mode - finalize selection and capture
+    if (captureMode && captureStart && captureEnd) {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+
+      // Convert to canvas coordinates
+      const x1 = captureStart.x * dpr;
+      const y1 = captureStart.y * dpr;
+      const x2 = captureEnd.x * dpr;
+      const y2 = captureEnd.y * dpr;
+
+      captureObservation(x1, y1, x2, y2);
+      return;
+    }
+
     if (camera.isDragging) {
       const dragDist = Math.sqrt(
         Math.pow(e.clientX - dragStartX, 2) +
@@ -396,6 +462,526 @@ function setupUI() {
     }
     camera.isDragging = false;
   };
+
+  // Catalog UI setup
+  setupCatalogUI();
+}
+
+function saveRulesToFile() {
+  const rulesData = {
+    version: "1.0",
+    timestamp: Date.now(),
+    date: new Date().toLocaleString("pt-BR"),
+    species: m,
+    affinities: Array.from(affinities),
+    reactions: Array.from(reactions),
+    activeRules: JSON.parse(JSON.stringify(activeRules)),
+    parameters: {
+      dt: parseFloat(get("dtInput").value),
+      friction: parseFloat(get("frictionInput").value),
+      rProb: parseFloat(get("reactInput").value),
+      rMin: parseFloat(get("rMinInput").value),
+      rMax: parseFloat(get("rMaxInput").value),
+      beta: parseFloat(get("betaInput").value),
+      worldSize: parseFloat(get("worldSizeInput").value),
+      particleSize: parseFloat(get("pSizeInput").value),
+    },
+  };
+
+  const dataStr = JSON.stringify(rulesData, null, 2);
+  const blob = new Blob([dataStr], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `tgenesis-rules-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  // Show success message
+  const btn = get("saveRules");
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '<i class="ph ph-check"></i> Salvo!';
+  setTimeout(() => {
+    btn.innerHTML = originalText;
+  }, 2000);
+}
+
+function loadRulesFromFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const rulesData = JSON.parse(e.target.result);
+
+      // Validate file format
+      if (
+        !rulesData.version ||
+        !rulesData.affinities ||
+        !rulesData.activeRules
+      ) {
+        alert("Formato de arquivo inválido.");
+        return;
+      }
+
+      // Check if species count matches
+      if (rulesData.species !== m) {
+        if (
+          !confirm(
+            `Este arquivo tem ${rulesData.species} espécies, mas o mundo atual tem ${m}. Deseja resetar o mundo com ${rulesData.species} espécies?`,
+          )
+        ) {
+          return;
+        }
+        // Update species count
+        get("mInput").value = rulesData.species;
+        m = rulesData.species;
+      }
+
+      // Load affinities
+      affinities = new Float32Array(rulesData.affinities);
+      device.queue.writeBuffer(affinityBuffer, 0, affinities);
+
+      // Load reactions
+      reactions = new Float32Array(rulesData.reactions);
+      device.queue.writeBuffer(reactionBuffer, 0, reactions);
+
+      // Load active rules
+      activeRules = rulesData.activeRules;
+
+      // Load parameters if available
+      if (rulesData.parameters) {
+        const p = rulesData.parameters;
+        if (p.dt !== undefined) get("dtInput").value = p.dt;
+        if (p.friction !== undefined) get("frictionInput").value = p.friction;
+        if (p.rProb !== undefined) get("reactInput").value = p.rProb;
+        if (p.rMin !== undefined) get("rMinInput").value = p.rMin;
+        if (p.rMax !== undefined) get("rMaxInput").value = p.rMax;
+        if (p.beta !== undefined) get("betaInput").value = p.beta;
+        if (p.worldSize !== undefined)
+          get("worldSizeInput").value = p.worldSize;
+        if (p.particleSize !== undefined)
+          get("pSizeInput").value = p.particleSize;
+      }
+
+      // Update UI
+      renderMatrix();
+      updateRegrasUI();
+      updateParticleSelector();
+
+      // Show success message
+      const btn = get("loadRules");
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<i class="ph ph-check"></i> Carregado!';
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+      }, 2000);
+    } catch (err) {
+      console.error("Error loading rules:", err);
+      alert("Erro ao carregar regras. Verifique o arquivo.");
+    }
+  };
+  reader.readAsText(file);
+  // Reset file input
+  get("rulesFileInput").value = "";
+}
+
+function setupCatalogUI() {
+  // Capture button - enters capture mode
+  get("captureBtn").onclick = enterCaptureMode;
+
+  // Export button
+  get("exportCatalog").onclick = exportCatalog;
+
+  // Import button
+  get("importCatalog").onclick = () => {
+    get("catalogFileInput").click();
+  };
+
+  get("catalogFileInput").onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      importCatalog(file);
+    }
+  };
+
+  // Modal controls
+  get("closeModal").onclick = () => {
+    get("observationModal").classList.remove("active");
+  };
+
+  get("cancelObservation").onclick = () => {
+    get("observationModal").classList.remove("active");
+  };
+
+  get("saveObservation").onclick = saveObservation;
+
+  get("closeDetailModal").onclick = () => {
+    get("detailModal").classList.remove("active");
+  };
+
+  get("closeDetail").onclick = () => {
+    get("detailModal").classList.remove("active");
+  };
+
+  get("deleteObservation").onclick = deleteCurrentObservation;
+
+  get("loadObservationRules").onclick = loadObservationRules;
+
+  // Close modals on background click
+  get("observationModal").onclick = (e) => {
+    if (e.target === get("observationModal")) {
+      get("observationModal").classList.remove("active");
+    }
+  };
+
+  get("detailModal").onclick = (e) => {
+    if (e.target === get("detailModal")) {
+      get("detailModal").classList.remove("active");
+    }
+  };
+
+  // Keyboard shortcuts
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && captureMode) {
+      exitCaptureMode();
+    }
+  });
+}
+
+function enterCaptureMode() {
+  captureMode = true;
+  captureStart = null;
+  captureEnd = null;
+
+  get("captureOverlay").classList.add("active");
+  get("captureHint").classList.add("active");
+  canvas.classList.add("capture-mode");
+
+  // Disable normal canvas interactions
+  camera.isDragging = false;
+}
+
+function exitCaptureMode() {
+  captureMode = false;
+  captureStart = null;
+  captureEnd = null;
+
+  get("captureOverlay").classList.remove("active");
+  get("captureSelection").classList.remove("active");
+  get("captureHint").classList.remove("active");
+  canvas.classList.remove("capture-mode");
+}
+
+function updateCaptureSelection(x1, y1, x2, y2) {
+  const selection = get("captureSelection");
+  const left = Math.min(x1, x2);
+  const top = Math.min(y1, y2);
+  const width = Math.abs(x2 - x1);
+  const height = Math.abs(y2 - y1);
+
+  selection.style.left = left + "px";
+  selection.style.top = top + "px";
+  selection.style.width = width + "px";
+  selection.style.height = height + "px";
+  selection.classList.add("active");
+}
+
+function captureObservation(x1, y1, x2, y2) {
+  // Calculate capture area
+  const left = Math.min(x1, x2);
+  const top = Math.min(y1, y2);
+  const width = Math.abs(x2 - x1);
+  const height = Math.abs(y2 - y1);
+
+  // Minimum size check
+  if (width < 50 || height < 50) {
+    alert("Área de captura muito pequena. Arraste uma área maior.");
+    exitCaptureMode();
+    return;
+  }
+
+  // Capture specific area from canvas
+  const captureCanvas = document.createElement("canvas");
+  const size = Math.min(width, height); // Make it square
+  captureCanvas.width = 512;
+  captureCanvas.height = 512;
+  const captureCtx = captureCanvas.getContext("2d");
+
+  // Draw the selected area to capture canvas
+  captureCtx.drawImage(canvas, left, top, size, size, 0, 0, 512, 512);
+
+  // Store the image data
+  const imageData = captureCanvas.toDataURL("image/png");
+
+  // Store current simulation state
+  currentObservationData = {
+    image: imageData,
+    population: n,
+    species: m,
+    timestamp: Date.now(),
+    affinities: Array.from(affinities),
+    reactions: Array.from(reactions),
+    activeRules: JSON.parse(JSON.stringify(activeRules)),
+  };
+
+  // Show preview in modal
+  const previewCanvas = get("previewCanvas");
+  const previewCtx = previewCanvas.getContext("2d");
+  const img = new Image();
+  img.onload = () => {
+    previewCtx.drawImage(img, 0, 0, previewCanvas.width, previewCanvas.height);
+  };
+  img.src = imageData;
+
+  // Update metadata
+  get("metaPopulation").textContent = n;
+  get("metaSpecies").textContent = m;
+  get("metaDate").textContent = new Date().toLocaleDateString("pt-BR");
+
+  // Clear form
+  get("observationName").value = "";
+  get("observationDesc").value = "";
+
+  // Show modal
+  get("observationModal").classList.add("active");
+
+  // Exit capture mode
+  exitCaptureMode();
+}
+
+function saveObservation() {
+  const name = get("observationName").value.trim();
+  const description = get("observationDesc").value.trim();
+
+  if (!name) {
+    alert("Por favor, dê um nome à observação.");
+    return;
+  }
+
+  const observation = {
+    id: Date.now(),
+    name,
+    description,
+    ...currentObservationData,
+  };
+
+  catalog.push(observation);
+  saveCatalog();
+  renderCatalog();
+
+  // Close modal
+  get("observationModal").classList.remove("active");
+}
+
+function renderCatalog() {
+  const grid = get("catalogGrid");
+
+  if (catalog.length === 0) {
+    grid.innerHTML = `
+      <div class="catalog-empty">
+        <i class="ph ph-notebook"></i>
+        <p>Nenhuma observação registrada ainda.<br>Capture momentos interessantes da simulação!</p>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = catalog
+    .map(
+      (obs, index) => `
+    <div class="catalog-item" onclick="showObservationDetail(${index})">
+      <img src="${obs.image}" alt="${obs.name}" class="catalog-item-image" />
+      <div class="catalog-item-info">
+        <h4 class="catalog-item-name">${obs.name}</h4>
+        <div class="catalog-item-meta">
+          <i class="ph ph-users"></i>
+          ${obs.population}
+        </div>
+      </div>
+    </div>
+  `,
+    )
+    .join("");
+}
+
+window.showObservationDetail = function (index) {
+  selectedObservationIndex = index;
+  const obs = catalog[index];
+
+  get("detailName").textContent = obs.name;
+  get("detailImage").src = obs.image;
+  get("detailDesc").textContent = obs.description || "Sem descrição.";
+  get("detailPopulation").textContent = obs.population;
+  get("detailSpecies").textContent = obs.species;
+  get("detailDate").textContent = new Date(obs.timestamp).toLocaleDateString(
+    "pt-BR",
+  );
+
+  get("detailModal").classList.add("active");
+};
+
+function deleteCurrentObservation() {
+  if (
+    selectedObservationIndex !== null &&
+    confirm("Tem certeza que deseja excluir esta observação?")
+  ) {
+    catalog.splice(selectedObservationIndex, 1);
+    saveCatalog();
+    renderCatalog();
+    get("detailModal").classList.remove("active");
+    selectedObservationIndex = null;
+  }
+}
+
+function loadObservationRules() {
+  if (selectedObservationIndex === null) return;
+
+  const obs = catalog[selectedObservationIndex];
+
+  if (!obs.affinities || !obs.reactions || !obs.activeRules) {
+    alert("Esta observação não contém dados de regras.");
+    return;
+  }
+
+  if (
+    !confirm(
+      `Deseja carregar as regras desta observação?\n\nIsso irá substituir as regras atuais.`,
+    )
+  ) {
+    return;
+  }
+
+  // Check if species count matches
+  if (obs.species !== m) {
+    if (
+      !confirm(
+        `Esta observação tem ${obs.species} espécies, mas o mundo atual tem ${m}. Deseja resetar o mundo com ${obs.species} espécies?`,
+      )
+    ) {
+      return;
+    }
+    // Update species count
+    get("mInput").value = obs.species;
+    m = obs.species;
+
+    // Need to recreate buffers with new size
+    const ws = parseFloat(get("worldSizeInput").value);
+
+    // Recreate affinity buffer
+    if (affinityBuffer) affinityBuffer.destroy();
+    affinityBuffer = device.createBuffer({
+      size: m * m * 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+
+    // Recreate reaction buffer
+    if (reactionBuffer) reactionBuffer.destroy();
+    reactionBuffer = device.createBuffer({
+      size: m * m * 8,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+  }
+
+  // Load affinities
+  affinities = new Float32Array(obs.affinities);
+  device.queue.writeBuffer(affinityBuffer, 0, affinities);
+
+  // Load reactions
+  reactions = new Float32Array(obs.reactions);
+  device.queue.writeBuffer(reactionBuffer, 0, reactions);
+
+  // Load active rules
+  activeRules = JSON.parse(JSON.stringify(obs.activeRules));
+
+  // Recreate bind group with updated buffers
+  bindGroup = device.createBindGroup({
+    layout: pipeline.getBindGroupLayout(0),
+    entries: [
+      { binding: 0, resource: { buffer: particleBuffer } },
+      { binding: 1, resource: { buffer: affinityBuffer } },
+      { binding: 2, resource: { buffer: paramsBuffer } },
+      { binding: 3, resource: { buffer: reactionBuffer } },
+    ],
+  });
+
+  // Update UI
+  renderMatrix();
+  updateRegrasUI();
+  updateParticleSelector();
+
+  // Close modal
+  get("detailModal").classList.remove("active");
+
+  // Show success message (switch to affinity tab to show the loaded rules)
+  document.querySelector('[data-tab="tab-aff"]').click();
+}
+
+function saveCatalog() {
+  try {
+    localStorage.setItem("tgenesis-catalog", JSON.stringify(catalog));
+  } catch (e) {
+    console.error("Error saving catalog:", e);
+  }
+}
+
+function loadCatalog() {
+  try {
+    const saved = localStorage.getItem("tgenesis-catalog");
+    if (saved) {
+      catalog = JSON.parse(saved);
+      renderCatalog();
+    }
+  } catch (e) {
+    console.error("Error loading catalog:", e);
+    catalog = [];
+  }
+}
+
+function exportCatalog() {
+  if (catalog.length === 0) {
+    alert("Nenhuma observação para exportar.");
+    return;
+  }
+
+  const dataStr = JSON.stringify(catalog, null, 2);
+  const blob = new Blob([dataStr], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `tgenesis-catalog-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importCatalog(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (Array.isArray(imported)) {
+        if (
+          confirm(
+            `Importar ${imported.length} observações? Isso irá substituir o catálogo atual.`,
+          )
+        ) {
+          catalog = imported;
+          saveCatalog();
+          renderCatalog();
+        }
+      } else {
+        alert("Formato de arquivo inválido.");
+      }
+    } catch (err) {
+      console.error("Error importing catalog:", err);
+      alert("Erro ao importar catálogo. Verifique o arquivo.");
+    }
+  };
+  reader.readAsText(file);
+  // Reset file input
+  get("catalogFileInput").value = "";
 }
 
 function renderMatrix() {

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>T-Genesis v2</title>
+    <title>T-Genesis v2 - Catálogo de Observações</title>
 
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap"
@@ -116,6 +116,30 @@
           Random Reações
         </button>
       </section>
+
+      <div class="control-group">
+        <label>Gerenciar Regras</label>
+        <p class="rules-info">
+          <i class="ph ph-info"></i>
+          Salva: afinidades, reações e parâmetros de simulação
+        </p>
+        <div class="rules-management">
+          <button id="saveRules" class="rules-btn save">
+            <i class="ph ph-floppy-disk"></i>
+            Salvar Regras
+          </button>
+          <button id="loadRules" class="rules-btn load">
+            <i class="ph ph-upload"></i>
+            Carregar Regras
+          </button>
+          <input
+            type="file"
+            id="rulesFileInput"
+            accept=".json"
+            style="display: none"
+          />
+        </div>
+      </div>
 
       <div class="control-group">
         <label>Ferramentas de Edição</label>
@@ -247,6 +271,10 @@
       <nav class="tabs">
         <button class="tab-btn active" data-tab="tab-aff">Afinidades</button>
         <button class="tab-btn" data-tab="tab-regras">Reações</button>
+        <button class="tab-btn" data-tab="tab-catalog">
+          <i class="ph ph-notebook"></i>
+          Catálogo
+        </button>
       </nav>
 
       <div id="tab-aff" class="tab-content active">
@@ -293,11 +321,176 @@
 
         <div id="activeRulesList"></div>
       </div>
+
+      <div id="tab-catalog" class="tab-content">
+        <div class="catalog-header">
+          <h3>
+            <i class="ph ph-notebook"></i>
+            Catálogo de Observações
+          </h3>
+          <p class="catalog-subtitle">
+            Capture e documente formações celulares interessantes
+          </p>
+        </div>
+
+        <div class="catalog-actions">
+          <button id="captureBtn" class="catalog-btn capture">
+            <i class="ph ph-camera"></i>
+            Capturar Observação
+          </button>
+          <button id="exportCatalog" class="catalog-btn export">
+            <i class="ph ph-download-simple"></i>
+            Exportar Catálogo
+          </button>
+          <button id="importCatalog" class="catalog-btn import">
+            <i class="ph ph-upload-simple"></i>
+            Importar Catálogo
+          </button>
+          <input
+            type="file"
+            id="catalogFileInput"
+            accept=".json"
+            style="display: none"
+          />
+        </div>
+
+        <div id="catalogGrid" class="catalog-grid"></div>
+      </div>
     </aside>
 
     <main>
       <canvas id="c"></canvas>
+
+      <!-- Capture overlay -->
+      <div id="captureOverlay" class="capture-overlay">
+        <div id="captureSelection" class="capture-selection">
+          <div class="capture-corners">
+            <div class="capture-corner tl"></div>
+            <div class="capture-corner tr"></div>
+            <div class="capture-corner bl"></div>
+            <div class="capture-corner br"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="captureHint" class="capture-hint">
+        <i class="ph ph-camera"></i>
+        <span>Clique e arraste para selecionar a área • ESC para cancelar</span>
+      </div>
     </main>
+
+    <!-- Observation Modal -->
+    <div id="observationModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>
+            <i class="ph ph-clipboard-text"></i>
+            Nova Observação
+          </h3>
+          <button id="closeModal" class="close-btn">
+            <i class="ph ph-x"></i>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <canvas id="previewCanvas"></canvas>
+
+          <div class="form-group">
+            <label for="observationName">Nome da Célula/Organismo</label>
+            <input
+              type="text"
+              id="observationName"
+              placeholder="Ex: Célula Espiral Azul"
+              maxlength="50"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="observationDesc">Descrição e Notas</label>
+            <textarea
+              id="observationDesc"
+              placeholder="Descreva o comportamento, padrões de movimento, interações observadas..."
+              rows="4"
+              maxlength="500"
+            ></textarea>
+          </div>
+
+          <div class="observation-metadata">
+            <div class="metadata-item">
+              <i class="ph ph-users"></i>
+              <span id="metaPopulation">N/A</span> partículas
+            </div>
+            <div class="metadata-item">
+              <i class="ph ph-palette"></i>
+              <span id="metaSpecies">N/A</span> espécies
+            </div>
+            <div class="metadata-item">
+              <i class="ph ph-calendar"></i>
+              <span id="metaDate">N/A</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="cancelObservation" class="modal-btn cancel">
+            Cancelar
+          </button>
+          <button id="saveObservation" class="modal-btn save">
+            <i class="ph ph-check"></i>
+            Salvar Observação
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="detailModal" class="modal">
+      <div class="modal-content detail-modal">
+        <div class="modal-header">
+          <h3 id="detailName">Observação</h3>
+          <button id="closeDetailModal" class="close-btn">
+            <i class="ph ph-x"></i>
+          </button>
+        </div>
+
+        <div class="modal-body detail-body">
+          <img id="detailImage" alt="Observação" />
+
+          <div class="detail-info">
+            <h4>Descrição</h4>
+            <p id="detailDesc"></p>
+
+            <h4>Metadados</h4>
+            <div class="observation-metadata">
+              <div class="metadata-item">
+                <i class="ph ph-users"></i>
+                <span id="detailPopulation">N/A</span> partículas
+              </div>
+              <div class="metadata-item">
+                <i class="ph ph-palette"></i>
+                <span id="detailSpecies">N/A</span> espécies
+              </div>
+              <div class="metadata-item">
+                <i class="ph ph-calendar"></i>
+                <span id="detailDate">N/A</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="loadObservationRules" class="modal-btn load-rules">
+            <i class="ph ph-play"></i>
+            Carregar Regras
+          </button>
+          <button id="deleteObservation" class="modal-btn delete">
+            <i class="ph ph-trash"></i>
+            Excluir
+          </button>
+          <button id="closeDetail" class="modal-btn">Fechar</button>
+        </div>
+      </div>
+    </div>
 
     <script src="main.js"></script>
   </body>
