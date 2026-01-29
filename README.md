@@ -668,7 +668,7 @@ Simulações com temperatura elevada e baixo atrito.
 
 Agradeço o **Professor Tiago** pelo apoio, orientação e incentivo ao desenvolvimento deste projeto.
 
-Sua contribuição foi fundamental tanto no aspecto técnico quanto conceitual, auxiliando na consolidação do **T-GENESIS** como uma ferramenta de experimentação, análise e investigação de sistemas complexos e vida artificial.
+Sua contribuição foi fundamental, auxiliando na consolidação do **T-GENESIS** como uma ferramenta de experimentação, análise e investigação de sistemas complexos e vida artificial.
 
 O acompanhamento crítico e as sugestões oferecidas ao longo do processo foram essenciais para elevar a qualidade geral do projeto.
 
