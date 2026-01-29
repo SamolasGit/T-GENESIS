@@ -60,8 +60,8 @@ const presets = [
   },
   {
     name: "Helix",
-    icon: "🧬",
-    description: "Estruturas espirais com reações dinâmicas",
+    icon: "⁉️",
+    description: "Uma espécie interessante que se autopropulsiona",
     config: {
       m: 6, // Conforme o arquivo (species: 6)
       n: 6000,
