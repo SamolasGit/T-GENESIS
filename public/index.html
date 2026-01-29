@@ -100,6 +100,12 @@
         </div>
       </div>
 
+      <!-- Main Controls Section -->
+      <div class="section-header">
+        <i class="ph ph-sliders"></i>
+        Controles Principais
+      </div>
+
       <section class="main-buttons">
         <button id="reset">
           <i class="ph ph-arrows-clockwise"></i>
@@ -117,32 +123,139 @@
         </button>
       </section>
 
-      <div class="control-group">
-        <label>Gerenciar Regras</label>
-        <p class="rules-info">
-          <i class="ph ph-info"></i>
-          Salva: afinidades, reações e parâmetros de simulação
-        </p>
-        <div class="rules-management">
-          <button id="saveRules" class="rules-btn save">
-            <i class="ph ph-floppy-disk"></i>
-            Salvar Regras
-          </button>
-          <button id="loadRules" class="rules-btn load">
-            <i class="ph ph-upload"></i>
-            Carregar Regras
-          </button>
-          <input
-            type="file"
-            id="rulesFileInput"
-            accept=".json"
-            style="display: none"
-          />
-        </div>
+      <!-- Presets Section -->
+      <div class="section-header">
+        <i class="ph ph-star"></i>
+        Configurações Predefinidas
       </div>
 
       <div class="control-group">
-        <label>Ferramentas de Edição</label>
+        <div class="presets-grid" id="presetsGrid"></div>
+      </div>
+
+      <!-- Population & Species Section -->
+      <div class="section-header">
+        <i class="ph ph-users"></i>
+        População & Espécies
+      </div>
+
+      <div class="control-group">
+        <label>Espécies <span id="mVal">6</span></label>
+        <input type="range" id="mInput" min="2" max="12" step="1" value="6" />
+
+        <label>População <span id="nVal">10000</span></label>
+        <input
+          type="range"
+          id="nInput"
+          min="0"
+          max="50000"
+          step="100"
+          value="10000"
+        />
+      </div>
+
+      <!-- Physics Parameters Section -->
+      <div class="section-header">
+        <i class="ph ph-atom"></i>
+        Parâmetros Físicos
+      </div>
+
+      <div class="control-group">
+        <label>Temperatura <span id="dtVal">0</span> K</label>
+        <input
+          type="range"
+          id="dtInput"
+          min="0"
+          max="373.15"
+          step="0.1"
+          value="335.8"
+        />
+
+        <label>Atrito <span id="frictionVal">0.05</span></label>
+        <input
+          type="range"
+          id="frictionInput"
+          min="0"
+          max="1"
+          step="0.01"
+          value="0.46"
+        />
+
+        <label>Força (Beta) <span id="betaVal">0.020</span></label>
+        <input
+          type="range"
+          id="betaInput"
+          min="0"
+          max="0.5"
+          step="0.005"
+          value="0.09"
+        />
+
+        <label>Prob. Reação <span id="reactVal">1.0</span>%</label>
+        <input
+          type="range"
+          id="reactInput"
+          min="0"
+          max="100"
+          step="0.1"
+          value="1"
+        />
+      </div>
+
+      <!-- World Parameters Section -->
+      <div class="section-header">
+        <i class="ph ph-globe"></i>
+        Parâmetros do Mundo
+      </div>
+
+      <div class="control-group">
+        <label>Tamanho do Mundo <span id="worldSizeVal">2000</span></label>
+        <input
+          type="range"
+          id="worldSizeInput"
+          min="500"
+          max="10000"
+          step="100"
+          value="2000"
+        />
+
+        <label>
+          Raio Mínimo
+          <span id="rMinVal">15</span>
+        </label>
+        <input type="range" id="rMinInput" min="1" max="500" value="50" />
+
+        <label>
+          Raio Máximo
+          <span id="rMaxVal">80</span>
+        </label>
+        <input type="range" id="rMaxInput" min="10" max="1000" value="200" />
+
+        <label>Tam. Partícula <span id="pSizeVal">2.5</span></label>
+        <input
+          type="range"
+          id="pSizeInput"
+          min="0.1"
+          max="50"
+          step="0.1"
+          value="2.5"
+        />
+
+        <div class="toggle-container">
+          <label>
+            <input type="checkbox" id="showBorder" checked />
+            <span>Mostrar Borda do Mundo</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Edit Tools Section -->
+      <div class="section-header">
+        <i class="ph ph-paint-brush"></i>
+        Ferramentas de Edição
+      </div>
+
+      <div class="control-group">
         <div class="tool-buttons">
           <button id="addMode" class="tool-btn active">
             <i class="ph ph-plus-circle"></i>
@@ -170,102 +283,41 @@
           step="1"
           value="5"
         />
+      </div>
 
-        <div class="toggle-container">
-          <label>
-            <input type="checkbox" id="showBorder" checked />
-            <span>Mostrar Borda do Mundo</span>
-          </label>
+      <!-- Rules Management Section -->
+      <div class="section-header">
+        <i class="ph ph-floppy-disk"></i>
+        Gerenciar Regras
+      </div>
+
+      <div class="control-group">
+        <p class="rules-info">
+          <i class="ph ph-info"></i>
+          Salva: afinidades, reações e parâmetros de simulação
+        </p>
+        <div class="rules-management">
+          <button id="saveRules" class="rules-btn save">
+            <i class="ph ph-floppy-disk"></i>
+            Salvar
+          </button>
+          <button id="loadRules" class="rules-btn load">
+            <i class="ph ph-upload"></i>
+            Carregar
+          </button>
+          <input
+            type="file"
+            id="rulesFileInput"
+            accept=".json"
+            style="display: none"
+          />
         </div>
       </div>
 
-      <div class="control-group">
-        <label>Espécies <span id="mVal">6</span></label>
-        <input type="range" id="mInput" min="2" max="12" step="1" value="6" />
-
-        <label>População <span id="nVal">10000</span></label>
-        <input
-          type="range"
-          id="nInput"
-          min="0"
-          max="50000"
-          step="100"
-          value="10000"
-        />
-      </div>
-
-      <div class="control-group">
-        <label>Temperatura <span id="dtVal">0.005</span></label>
-        <input
-          type="range"
-          id="dtInput"
-          min="0"
-          max="0.01"
-          step="0.0000000001"
-          value="0.009"
-        />
-
-        <label>Atrito <span id="frictionVal">0.05</span></label>
-        <input
-          type="range"
-          id="frictionInput"
-          min="0.01"
-          max="0.5"
-          step="0.01"
-          value="0.46"
-        />
-
-        <label>Força (Beta) <span id="betaVal">0.020</span></label>
-        <input
-          type="range"
-          id="betaInput"
-          min="0.005"
-          max="0.1"
-          step="0.005"
-          value="0.09"
-        />
-      </div>
-
-      <div class="control-group">
-        <label>Mundo <span id="worldSizeVal">2000</span></label>
-        <input
-          type="range"
-          id="worldSizeInput"
-          min="500"
-          max="4000"
-          step="100"
-          value="2000"
-        />
-
-        <label>
-          Raio Min/Max
-          <span id="rMinVal">15</span> /
-          <span id="rMaxVal">80</span>
-        </label>
-        <input type="range" id="rMinInput" min="2" max="100" value="50" />
-        <input type="range" id="rMaxInput" min="50" max="250" value="200" />
-      </div>
-
-      <div class="control-group">
-        <label>Prob. Reação <span id="reactVal">1.0</span>%</label>
-        <input
-          type="range"
-          id="reactInput"
-          min="0"
-          max="10"
-          step="0.1"
-          value="1"
-        />
-
-        <label>Tam. Partícula <span id="pSizeVal">2.5</span></label>
-        <input
-          type="range"
-          id="pSizeInput"
-          min="0.1"
-          max="10"
-          step="0.1"
-          value="2.5"
-        />
+      <!-- Tabs for Affinities, Reactions, Catalog -->
+      <div class="section-header">
+        <i class="ph ph-layout"></i>
+        Configuração Avançada
       </div>
 
       <nav class="tabs">

@@ -30,6 +30,158 @@ let captureMode = false;
 let captureStart = null;
 let captureEnd = null;
 
+// Preset configurations
+const presets = [
+  {
+    name: "Cobra",
+    icon: "🐍",
+    description: "Cores formam cadeias seguindo a próxima",
+    config: {
+      m: 6,
+      n: 8000,
+      dt: 7.3,
+      friction: 0.47,
+      beta: 0.065,
+      rMin: 190,
+      rMax: 1000,
+      rProb: 0.3,
+      worldSize: 2000,
+      affinities: (function () {
+        const F = 0.5;
+        const arr = new Array(36).fill(-0.2);
+        for (let i = 0; i < 6; i++) {
+          arr[i * 6 + i] = F;
+          arr[i * 6 + ((i + 1) % 6)] = 2 * F;
+        }
+        return arr;
+      })(),
+      activeRules: [],
+    },
+  },
+  {
+    name: "Helix",
+    icon: "🧬",
+    description: "Estruturas espirais com reações dinâmicas",
+    config: {
+      m: 6, // Conforme o arquivo (species: 6)
+      n: 6000,
+      dt: 373.1, // Valor Kelvin do arquivo
+      friction: 0.4, //
+      beta: 0.06, //
+      rMin: 35, //
+      rMax: 150, //
+      rProb: 1.5, //
+      worldSize: 2000,
+      // Matriz de afinidades extraída do JSON
+      affinities: [
+        0.1084, 0.3036, 0.907, 0.2185, 0.237, -0.5203, -0.3133, 0.6661, -0.9148,
+        0.3625, -0.5284, -0.9466, 0.039, 0.6415, 0.971, -0.2605, 0.1472,
+        -0.6748, 0.4501, 0.0145, -0.1442, -0.0612, 0.5256, -0.1597, 0.2638,
+        0.0489, -0.0264, -0.7136, 0.7416, -0.1373, 0.3624, -0.5998, -0.9675,
+        0.9595, -0.0354, 0.3873,
+      ],
+      // Regras ativas extraídas do arquivo
+      activeRules: [
+        [1, 2, 4, 5],
+        [5, 2, 3, 1],
+        [1, 4, 3, 0],
+        [3, 4, 4, 1],
+        [5, 2, 1, 0],
+        [3, 1, 4, 2],
+        [4, 4, 1, 0],
+        [5, 1, 0, 1],
+        [4, 4, 4, 1],
+        [2, 1, 3, 3],
+        [2, 3, 0, 4],
+        [3, 2, 4, 5],
+        [1, 1, 4, 3],
+      ],
+    },
+  },
+  {
+    name: "Cristais",
+    icon: "💎",
+    description: "Formações cristalinas estáveis",
+    config: {
+      m: 5,
+      n: 10000,
+      dt: 240,
+      friction: 0.5,
+      beta: 0.04,
+      rMin: 50,
+      rMax: 200,
+      rProb: 0.2,
+      worldSize: 2000,
+      // High self-attraction, slight repulsion to others creates distinct clusters
+      affinities: [
+        1.0, -0.2, -0.2, -0.2, -0.2, -0.2, 1.0, -0.2, -0.2, -0.2, -0.2, -0.2,
+        1.0, -0.2, -0.2, -0.2, -0.2, -0.2, 1.0, -0.2, -0.2, -0.2, -0.2, -0.2,
+        1.0,
+      ],
+      activeRules: [],
+    },
+  },
+  {
+    name: "Caos",
+    icon: "⚡",
+    description: "Movimento caótico e imprevisível",
+    config: {
+      m: 8,
+      n: 12000,
+      dt: 373.1,
+      friction: 0.0, // Low friction = high velocity
+      beta: 0.095,
+      rMin: 25,
+      rMax: 120,
+      rProb: 3.0,
+      worldSize: 2500,
+      affinities: Array.from({ length: 64 }, () => Math.random() * 2 - 1),
+      activeRules: [],
+    },
+  },
+  {
+    name: "Bolhas",
+    icon: "🫧",
+    description: "Clusters que flutuam suavemente",
+    config: {
+      m: 4,
+      n: 5000,
+      dt: 240,
+      friction: 0.6,
+      beta: 0.03,
+      rMin: 60,
+      rMax: 220,
+      rProb: 0.1,
+      worldSize: 2000,
+      // Strong mutual attraction between types 0&1 and 2&3
+      affinities: [
+        0.7, 0.7, 0.0, 0.0, 0.7, 0.7, 0.0, 0.0, 0.0, 0.0, 0.7, 0.7, 0.0, 0.0,
+        0.7, 0.7,
+      ],
+      activeRules: [],
+    },
+  },
+  {
+    name: "Ondas",
+    icon: "🌊",
+    description: "Padrões ondulatórios propagantes",
+    config: {
+      m: 3,
+      n: 7000,
+      dt: 180,
+      friction: 0.3,
+      beta: 0.08,
+      rMin: 45,
+      rMax: 160,
+      rProb: 0.8,
+      worldSize: 2000,
+      // Asymmetric attraction creates flow (0->1->2->0)
+      affinities: [0.2, 0.8, -0.8, -0.8, 0.2, 0.8, 0.8, -0.8, 0.2],
+      activeRules: [],
+    },
+  },
+];
+
 const shaderCode = `
     struct Particle { pos: vec2<f32>, vel: vec2<f32>, cls: f32, padding: f32 };
     struct Params { dt: f32, friction: f32, n: f32, m: f32, worldSize: f32, rProb: f32, rMin: f32, rMax: f32, beta: f32, p1: f32, p2: f32, p3: f32 };
@@ -97,11 +249,119 @@ async function init() {
   };
   window.onresize();
   setupUI();
+  renderPresets();
   loadCatalog();
   reset();
   isReady = true;
   requestAnimationFrame(loop);
 }
+
+function renderPresets() {
+  const grid = get("presetsGrid");
+  grid.innerHTML = presets
+    .map(
+      (preset, idx) => `
+    <div class="preset-card" onclick="loadPreset(${idx})">
+      <span class="preset-icon">${preset.icon}</span>
+      <div class="preset-name">${preset.name}</div>
+      <div class="preset-desc">${preset.description}</div>
+    </div>
+  `,
+    )
+    .join("");
+}
+
+window.loadPreset = function (index) {
+  const preset = presets[index];
+  const config = preset.config;
+
+  // Update UI controls
+  get("mInput").value = config.m;
+  get("mVal").textContent = config.m;
+  get("nInput").value = config.n;
+  get("nVal").textContent = config.n;
+  get("dtInput").value = config.dt;
+  get("frictionInput").value = config.friction;
+  get("betaInput").value = config.beta;
+  get("rMinInput").value = config.rMin;
+  get("rMaxInput").value = config.rMax;
+  get("reactInput").value = config.rProb;
+  get("worldSizeInput").value = config.worldSize;
+
+  // Update global variables
+  m = config.m;
+  n = config.n;
+
+  // Set affinities
+  affinities = new Float32Array(config.affinities);
+
+  // Set active rules
+  activeRules = JSON.parse(JSON.stringify(config.activeRules));
+
+  // Reset particles with new configuration
+  const ws = config.worldSize;
+  camera.x = ws / 2;
+  camera.y = ws / 2;
+
+  const pData = new Float32Array(n * 6);
+  particleArray = [];
+  for (let i = 0; i < n; i++) {
+    const px = Math.random() * ws;
+    const py = Math.random() * ws;
+    const cls = Math.floor(Math.random() * m);
+    pData[i * 6] = px;
+    pData[i * 6 + 1] = py;
+    pData[i * 6 + 4] = cls;
+    particleArray.push({ x: px, y: py, vx: 0, vy: 0, cls });
+  }
+
+  reactions = new Float32Array(m * m * 2);
+
+  // Recreate buffers
+  if (particleBuffer) particleBuffer.destroy();
+  particleBuffer = device.createBuffer({
+    size: pData.byteLength,
+    usage:
+      GPUBufferUsage.STORAGE |
+      GPUBufferUsage.COPY_DST |
+      GPUBufferUsage.COPY_SRC,
+  });
+  device.queue.writeBuffer(particleBuffer, 0, pData);
+
+  if (affinityBuffer) affinityBuffer.destroy();
+  affinityBuffer = device.createBuffer({
+    size: m * m * 4,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  });
+  device.queue.writeBuffer(affinityBuffer, 0, affinities);
+
+  if (reactionBuffer) reactionBuffer.destroy();
+  reactionBuffer = device.createBuffer({
+    size: m * m * 8,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  });
+
+  if (!paramsBuffer) {
+    paramsBuffer = device.createBuffer({
+      size: 48,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+  }
+
+  bindGroup = device.createBindGroup({
+    layout: pipeline.getBindGroupLayout(0),
+    entries: [
+      { binding: 0, resource: { buffer: particleBuffer } },
+      { binding: 1, resource: { buffer: affinityBuffer } },
+      { binding: 2, resource: { buffer: paramsBuffer } },
+      { binding: 3, resource: { buffer: reactionBuffer } },
+    ],
+  });
+
+  updateRegrasUI();
+  renderMatrix();
+  updateParticleSelector();
+};
 
 function reset() {
   n = parseInt(get("nInput")?.value || 10000);
@@ -166,7 +426,8 @@ async function loop() {
   if (!isReady) return;
 
   // 1. Pegar valores dos sliders para a simulação física
-  const dt = parseFloat(get("dtInput").value);
+  const tempKelvin = parseFloat(get("dtInput").value);
+  const dt = (tempKelvin / 373.15) * 0.01; // Convert Kelvin (0-373.15) to dt (0-0.01)
   const ws = parseFloat(get("worldSizeInput").value);
   const friction = parseFloat(get("frictionInput").value);
   const rProb = parseFloat(get("reactInput").value);
@@ -177,7 +438,7 @@ async function loop() {
 
   // 2. Atualizar apenas os labels de parâmetros físicos "vivos"
   // Note que removemos mVal e nVal daqui para eles não "resetarem" enquanto você arrasta
-  get("dtVal").textContent = dt.toFixed(4);
+  get("dtVal").textContent = tempKelvin.toFixed(1);
   get("worldSizeVal").textContent = ws;
   get("frictionVal").textContent = friction.toFixed(2);
   get("reactVal").textContent = rProb.toFixed(1);
@@ -488,7 +749,7 @@ function saveRulesToFile() {
     reactions: Array.from(reactions),
     activeRules: JSON.parse(JSON.stringify(activeRules)),
     parameters: {
-      dt: parseFloat(get("dtInput").value),
+      dt: parseFloat(get("dtInput").value), // Save as Kelvin
       friction: parseFloat(get("frictionInput").value),
       rProb: parseFloat(get("reactInput").value),
       rMin: parseFloat(get("rMinInput").value),
